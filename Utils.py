@@ -115,15 +115,3 @@ class Dataset(data.Dataset):
 
 
 #train_loader = data.DataLoader(Dataset(*train_inputs), batch_size=10, shuffle = True)
-
-
-
-
-"""
-Test that I can get batched dataloaders going first
-Then get the main script going until the model
-then begin scripting the model
-dual input sentences BERT into siamese LSTM 
-    I need to figure out how to get the token IDs identifying the two sentences
-"""
-
