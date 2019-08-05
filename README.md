@@ -24,5 +24,7 @@ Data Augmentation and Transfer Learning:
   
 Model:
 * Manhattan Siamese LSTM (MaLSTM)
-  * input: two sentences into shared LSTM
+  * input: two sentences to measure similarity
+  * Initilize with pretrained weights
+  * Shared LSTM  
   * Utilize L1 norm in similarity function 
