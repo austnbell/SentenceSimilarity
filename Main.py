@@ -15,18 +15,21 @@ sys.path.append(basePath)
 from torch.nn.utils import clip_grad_norm_
 import torch
 from torch.autograd import Variable
-from Models import *
-from Utils import *
-from FastText_vocab import *
-from parameters import *
-from AugmentData import *
+from Development.SentenceSimilarity.Models import *
+from Development.SentenceSimilarity.Utils import *
+from UtilFuncs.FastText_vocab import *
+from Development.SentenceSimilarity.parameters import *
+from Development.SentenceSimilarity.AugmentData import *
 from gensim.models import FastText, KeyedVectors
 from scipy.stats.stats import pearsonr 
 
 params = parameters(basePath)
+ftvec = KeyedVectors.load_word2vec_format(params.ftPath)
 #ftModel = FastText.load_fasttext_format(params.ftPath)
 print("Loaded Fasttext")
-        
+
+    
+    
 
 ###################################################################
 ## Source and augment data
@@ -54,15 +57,16 @@ val = open(params.testFile, "r", encoding = "utf-8").readlines()
 ###################################################################
 
 # if pretraining is set to false then this class handles the vocabulary and embedding extension internally
-vocab = FTvocab(ftModel, train + val)
-if params.pretrain == False:
-    vocab.load(basePath + "/Data/Models/STS vocab.txt", basePath + "/Data/Models/STS embed.npy")
+vocab = FTvocab(ftvec)
+#if params.pretrain == False:
+#    vocab.load(basePath + "/Development/SentenceSimilarity/Data/Models/STS vocab.txt", basePath + "/Development/SentenceSimilarity/Data/Models/STS embed.npy")
 vocab.getWords()
 vocab.createEmbeddings()
 vocab_sz = len(vocab)
 embed_dim = 300
 vocab.save(params.vocab_path, params.embed_path)
 print("Created Vocab")
+
 
 sMapTrain = map2idx(train, params, vocab)
 sMapVal = map2idx(val, params, vocab)
@@ -84,6 +88,7 @@ Model = SiameseFTnetwork(vocab_sz, embed_dim, torch.FloatTensor(vocab.vectors), 
 optimizer = torch.optim.Adam(Model.parameters(), lr = lr)
 
 criterion = nn.MSELoss().to(params.device)
+#criterion = nn.CrossEntropyLoss().to(params.device)
 
 num_batches = len(train_loader)
 epoch_no_improvement = 0
@@ -101,7 +106,8 @@ for i in range(params.epochs):
         #print(j)
         padded_sent_a = Variable(padded_sent_a).to(params.device)
         padded_sent_b = Variable(padded_sent_b).to(params.device)
-        gs = Variable(torch.exp(-gs)).to(params.device)
+        #gs = Variable(torch.exp(-gs)).to(params.device)
+        gs = Variable(gs).to(params.device)
         
         
         Model.zero_grad()
@@ -113,8 +119,8 @@ for i in range(params.epochs):
         loss.backward()
         
         # Clip gradients
-        clip_grad_norm_(Model.LSTM_a.parameters(), .25)
-        clip_grad_norm_(Model.LSTM_b.parameters(), .25)
+        clip_grad_norm_(Model.LSTM.parameters(), .25)
+        #clip_grad_norm_(Model.LSTM_b.parameters(), .25)
         
         optimizer.step()
         
@@ -125,10 +131,10 @@ for i in range(params.epochs):
         train_scores += list(gs.cpu().detach().numpy())
         
     # print training information 
-    avg_train_mse = sum(train_losses) / len(train_losses)
+    avg_train_loss = sum(train_losses) / len(train_losses)
     print("Epoch: {} out of: {}".format(i+1, params.epochs))
     print("Batch number: {} out of: {}".format(j, num_batches +1))
-    print("MSE: {}".format(avg_train_mse))
+    print("Loss: {}".format(avg_train_loss))
     print("Pearson: {}".format(pearsonr(train_preds, train_scores)))
     
     # test early stop and incorporate learning rate annealing
@@ -138,7 +144,8 @@ for i in range(params.epochs):
         for j, (padded_sent_a, padded_sent_b, senta_lengths, sentb_lengths, gs) in enumerate(val_loader):
             padded_sent_a = Variable(padded_sent_a).to(params.device)
             padded_sent_b = Variable(padded_sent_b).to(params.device)
-            gs_val = Variable(torch.exp(-gs)).to(params.device)
+            #gs_val = Variable(torch.exp(-gs)).to(params.device)
+            gs_val = Variable(gs).to(params.device)
             
             L1_loss = Model(padded_sent_a, padded_sent_b)
             loss = criterion(L1_loss, gs_val)
@@ -178,9 +185,7 @@ for i in range(params.epochs):
     
     
 
-
-
-    
+best_model = Model
 # evaluate
 val_losses = []
 val_preds = []
@@ -188,8 +193,10 @@ val_scores = []
 for j, (padded_sent_a, padded_sent_b, senta_lengths, sentb_lengths, gs) in enumerate(train_loader):
     padded_sent_a = Variable(padded_sent_a).to(params.device)
     padded_sent_b = Variable(padded_sent_b).to(params.device)
-    gs = Variable(torch.exp(-gs)).to(params.device)
-       
+    #gs = Variable(torch.exp(-gs)).to(params.device)
+    gs = Variable(gs).to(params.device)
+          
+    
     L1_loss = best_model(padded_sent_a, padded_sent_b)
     loss = criterion(L1_loss, gs)
     
@@ -201,4 +208,3 @@ avg_val_mse = sum(val_losses) / len(val_losses)
 print("MSE: {}".format(avg_val_mse))    
 print("Pearson: {}".format(pearsonr(val_preds, val_scores)))
   
-
