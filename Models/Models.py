@@ -19,6 +19,7 @@ A batch (sentence1, sentence2, and scores) enters model:
 @author: Austin Bell
 """
 
+
 import torch, re
 import torch.nn as nn
 from pytorch_pretrained_bert.modeling import BertModel,BertPreTrainedModel, BertConfig
@@ -45,20 +46,20 @@ class SiameseFTnetwork(nn.Module):
         self.embedding.weight.requires_grad = True
         
         # siamese LSTM
-        self.LSTM_a = nn.LSTM(embed_dim, params.hidden_dim, num_layers = 1, batch_first = True)
-        self.LSTM_b = nn.LSTM(embed_dim, params.hidden_dim, num_layers = 1, batch_first = True)
+        self.LSTM = nn.LSTM(embed_dim, params.hidden_dim, num_layers = 1, batch_first = True)
+        #self.LSTM_b = nn.LSTM(embed_dim, params.hidden_dim, num_layers = 1, batch_first = True)
+        
+        # linear layer
+        #self.siamese2class = nn.Linear()
         
         # initialize parameters
-        self.LSTM_a.load_state_dict(self.init_params("a"))
-        self.LSTM_b.load_state_dict(self.init_params("b"))
+        self.LSTM.load_state_dict(self.init_params())
+        #self.LSTM_b.load_state_dict(self.init_params("b"))
+        
         
     # init hidden
     # I need to initialize the weights not the hidden states
     def init_hidden(self, bs_at_moment): 
-        """
-        _a is hidden state for first LSTM
-        _b is hidden state for second LSTM
-        """
         # initialize with random gaussian entries
         h0_a = Variable(torch.zeros(1, bs_at_moment, self.hidden_dim)).to(self.device)
         c0_a = Variable(torch.zeros(1, bs_at_moment, self.hidden_dim)).to(self.device)
@@ -69,9 +70,9 @@ class SiameseFTnetwork(nn.Module):
         return (h0_a, c0_a), (h0_b, c0_b)   
     
 
-    def init_params(self, lstm_version): 
+    def init_params(self): 
         #biases are ordered as ingate, forgetgate, cellgate, outgate. 
-        state_dict = self.LSTM_a.state_dict() if lstm_version == "a" else self.LSTM_b.state_dict()
+        state_dict = self.LSTM.state_dict()
         
         if self.params.pretrain == True:
 
@@ -104,6 +105,7 @@ class SiameseFTnetwork(nn.Module):
                     state_dict[name].copy_(param)
                     
             return state_dict
+            
     
     def exponent_neg_manhattan_distance(self, hidden1, hidden2):
         return torch.exp(-torch.sum(torch.abs(hidden1-hidden2),dim = 1))
@@ -119,8 +121,8 @@ class SiameseFTnetwork(nn.Module):
         
         
         # pass output through each LSTM
-        _, lstm_a_hidden = self.LSTM_a(embedded_a, a0)
-        _, lstm_b_hidden = self.LSTM_b(embedded_b, b0)        
+        _, lstm_a_hidden = self.LSTM(embedded_a, a0)
+        _, lstm_b_hidden = self.LSTM(embedded_b, b0)        
         
         # Compute sentence similarity using exp(−||h(a) − h(b)||) L1 between sentence vectors (i.e., LSTM hidden states)
         encoding_a = lstm_a_hidden[0].squeeze()
@@ -133,7 +135,7 @@ class SiameseFTnetwork(nn.Module):
         L1_loss = self.exponent_neg_manhattan_distance(encoding_a, encoding_b)
         
         # return L1 Distance Calculation 
-        return L1_loss
+        return L1_loss*5
         
 
 
