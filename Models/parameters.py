@@ -8,7 +8,7 @@ import torch
 # use this class to edit all options used within the code
 class parameters(object):
     def __init__(self, basePath):
-        self.pretrain = False
+        self.pretrain = True
         self.data = "SICK"
         
         # data file paths
@@ -19,7 +19,7 @@ class parameters(object):
         
         # pretrained models
         self.bertPath = "C:/Users/Austin Bell/Documents/NLP/pretrainedModels/BERT/uncased_L-12_H-768_A-12"
-        self.ftPath = "C:/Users/Austin Bell/Documents/NLP/pretrainedModels/fastText/wiki.en/wiki.en.bin"
+        self.ftPath = "C:/Users/Austin Bell/Documents/NLP/pretrainedModels/fastText/wiki-news-300d-1M.vec/wiki-news-300d-1M.vec"
         
         # parameters specific to SICK final model
         if self.pretrain == False:
